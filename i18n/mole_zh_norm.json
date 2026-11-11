@@ -1,0 +1,23 @@
+{
+ "#0 apps, #1GB of Intel code": "#0 个应用, #1GB Intel 代码",
+ "#0 unchanged | #1 skipped | #2 unavailable": "#0 未变更 | #1 已跳过 | #2 不可用",
+ "#0. LM Studio  #1MB  |  Last: #2m ago": "#0. LM Studio  #1MB  |  上次: #2m 前",
+ "--interval DURATION             With --watch, collection interval (default #0s)": "  --interval DURATION             使用 --watch, 采集间隔 (默认 #0s)",
+ "--proc-cpu-threshold PERCENT    Alert above this CPU percent (default #0)": "  --proc-cpu-threshold PERCENT    CPU 百分比超过该值时告警 (默认 #0)",
+ "--proc-cpu-window DURATION      Time above the threshold before alerting (default #0m)": "  --proc-cpu-window DURATION      超过阈值持续该时长后才告警 (默认 #0m)",
+ "Alert above this CPU percent (default #0)": "CPU 百分比超过该值时告警 (默认 #0)",
+ "Already optimal for #0 databases": "#0 个数据库已是最佳状态",
+ "Knowledge database is healthy (#0MB)": "知识库状态正常 (#0MB)",
+ "Login items all healthy (#0 checked)": "登录项全部正常 (已检查 #0 个)",
+ "Matched #0 app(s):": "匹配到 #0 个应用:",
+ "Memory pressure: swap #0GB of #1GB used (#2%), #3% free": "内存压力: 交换空间已用 #0GB / #1GB (#2%), 剩余 #3%",
+ "Potential space: #0MB · #1 items": "可释放空间: #0MB · #1 项",
+ "Siri suggestions cache · #0 items, #1KB dry": "Siri 建议缓存 · #0 项, #1KB 试运行",
+ "System  #0/#1 GB RAM | #2/#3 GB Disk | Uptime #4d": "系统  #0/#1 GB RAM | #2/#3 GB Disk | 已运行 #4d",
+ "Time above the threshold before alerting (default #0m)": "超过阈值持续该时长后才告警 (默认 #0m)",
+ "Trash · would empty, #0 items": "废纸篓 · 将清空, #0 项",
+ "With --watch, collection interval (default #0s)": "使用 --watch, 采集间隔 (默认 #0s)",
+ "mo status --watch --interval #0s Continuous NDJSON stream": "mo status --watch --interval #0s 持续输出 NDJSON 流",
+ "npm cache directory · #0 items, #1KB dry": "npm 缓存目录 · #0 项, #1KB 试运行",
+ "npm logs · #0 items, #1KB dry": "npm 日志 · #0 项, #1KB 试运行"
+}

@@ -1,0 +1,1768 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mole WebUI</title>
+<style>
+:root{
+  --bg:#0d1117; --bg2:#121820; --card:#161c26; --card2:#1b2330;
+  --line:#242d3b; --line2:#2f3a4c;
+  --fg:#e6edf3; --fg2:#9aa7b8; --fg3:#6b7889;
+  --acc:#4f9cf9; --acc2:#7c5cff; --ok:#3fb950; --warn:#d29922; --err:#f85149; --cyan:#39c5cf;
+  --r:10px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;height:100%}
+body{
+  background:var(--bg); color:var(--fg);
+  font:14px/1.6 -apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  -webkit-font-smoothing:antialiased;
+}
+.app{display:flex;min-height:100vh}
+.sidebar{
+  width:236px;flex:0 0 236px;background:var(--bg2);border-right:1px solid var(--line);
+  display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto;
+}
+.brand{padding:18px 16px 14px;border-bottom:1px solid var(--line)}
+.brand h1{margin:0;font-size:16px;letter-spacing:.5px;display:flex;align-items:center;gap:8px}
+.brand .dot{width:9px;height:9px;border-radius:50%;background:var(--ok);box-shadow:0 0 8px var(--ok)}
+.brand .ver{margin-top:5px;font-size:11.5px;color:var(--fg3)}
+.brand .authbox{margin-top:10px;display:flex;flex-direction:column;gap:5px}
+.brand .authbox button{width:100%;padding:7px 9px;font-size:12px}
+.brand .authbox button.okbtn{background:rgba(122,209,102,.14);border-color:rgba(122,209,102,.5);color:var(--ok)}
+.brand .authbox .ast{margin:0;font-size:10.5px;color:var(--fg3);line-height:1.45}
+.navgroup{padding:12px 10px 4px}
+.navgroup h3{margin:0 0 6px 6px;font-size:11px;font-weight:600;color:var(--fg3);letter-spacing:1px}
+.navitem{
+  display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:8px;
+  color:var(--fg2);cursor:pointer;text-decoration:none;font-size:13.5px;border:1px solid transparent;
+}
+.navitem:hover{background:var(--card);color:var(--fg)}
+.navitem.active{background:var(--card2);color:var(--fg);border-color:var(--line2)}
+.navitem .ic{width:18px;text-align:center;font-size:13px;opacity:.85}
+.navitem .dsc{font-size:11px;color:var(--fg3);margin-left:auto}
+.sidebar-foot{padding:12px 14px;border-top:1px solid var(--line);font-size:11px;color:var(--fg3);margin-top:auto}
+.main{flex:1;min-width:0;display:flex;flex-direction:column}
+.topbar{
+  display:flex;align-items:flex-start;justify-content:space-between;gap:16px;
+  padding:18px 24px 12px;border-bottom:1px solid var(--line);
+}
+.topbar h2{margin:0;font-size:19px;font-weight:650}
+.topbar p{margin:4px 0 0;font-size:12.5px;color:var(--fg2)}
+.topbar .meta{font-size:11.5px;color:var(--fg3);text-align:right;white-space:nowrap}
+#banner{padding:0 24px;margin-top:12px}
+.banner{
+  background:rgba(210,153,34,.12);border:1px solid rgba(210,153,34,.4);
+  color:#f0c674;padding:9px 13px;border-radius:var(--r);font-size:12.5px;
+  display:flex;align-items:center;gap:8px;
+}
+.banner .x{margin-left:auto;cursor:pointer;opacity:.7}
+.view{padding:18px 24px 140px;flex:1;transition:padding-bottom .16s ease}
+/* 每代页面一个独立容器: 旧页面的异步回调只写旧容器, 切页时被整棵移除。
+   gap:0 是为了保持与原先 #view 直接放卡片时一致的间距（卡片自带 margin-bottom）。 */
+.page{display:flex;flex-direction:column;gap:0}
+.card{
+  background:var(--card);border:1px solid var(--line);border-radius:var(--r);
+  padding:16px 18px;margin-bottom:16px;
+}
+.card h3{margin:0 0 4px;font-size:14.5px;font-weight:620;display:flex;align-items:center;gap:8px}
+.card .desc{margin:0 0 14px;font-size:12.5px;color:var(--fg2)}
+.grid{display:grid;gap:16px}
+.g2{grid-template-columns:repeat(auto-fit,minmax(320px,1fr))}
+.g3{grid-template-columns:repeat(auto-fit,minmax(230px,1fr))}
+.g4{grid-template-columns:repeat(auto-fit,minmax(160px,1fr))}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px}
+.stat .k{font-size:11.5px;color:var(--fg3)}
+.stat .v{font-size:22px;font-weight:650;margin-top:3px;letter-spacing:.5px}
+.stat .s{font-size:11.5px;color:var(--fg2);margin-top:2px}
+.ringwrap{display:flex;flex-direction:column;align-items:center;gap:8px}
+.ring{
+  width:118px;height:118px;border-radius:50%;display:grid;place-items:center;
+  background:conic-gradient(var(--c,var(--acc)) calc(var(--p,0)*1%), #212a37 0);
+  position:relative;
+}
+.ring .hole{
+  width:86px;height:86px;border-radius:50%;background:var(--card);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+}
+.ring .hole b{font-size:22px;font-weight:650;line-height:1}
+.ring .hole span{font-size:10.5px;color:var(--fg3);margin-top:2px}
+.ringlabel{font-size:12px;color:var(--fg2)}
+button, .btn{
+  background:var(--card2);color:var(--fg);border:1px solid var(--line2);
+  padding:7px 14px;border-radius:8px;cursor:pointer;font-size:13px;font-family:inherit;
+  display:inline-flex;align-items:center;gap:6px;
+}
+button:hover{border-color:var(--acc);color:#fff}
+button:disabled{opacity:.45;cursor:not-allowed}
+button.primary{background:var(--acc);border-color:var(--acc);color:#06121f;font-weight:600}
+button.primary:hover{filter:brightness(1.1)}
+button.danger{background:rgba(248,81,73,.15);border-color:rgba(248,81,73,.55);color:#ff9a94}
+button.danger:hover{background:rgba(248,81,73,.28)}
+button.ghost{background:transparent}
+button.sm{padding:4px 9px;font-size:12px}
+.row{display:flex;gap:9px;flex-wrap:wrap;align-items:center}
+.row.end{justify-content:flex-end}
+.spacer{flex:1}
+label.chk{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--fg2);cursor:pointer}
+input[type=text],input[type=number],select,textarea{
+  background:#0c1017;border:1px solid var(--line2);color:var(--fg);
+  padding:7px 10px;border-radius:8px;font-size:13px;font-family:inherit;outline:none;
+}
+input[type=text]:focus,textarea:focus,select:focus{border-color:var(--acc)}
+textarea{width:100%;min-height:150px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;line-height:1.55;resize:vertical}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th,td{padding:8px 10px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--fg3);font-weight:600;font-size:11.5px;letter-spacing:.4px;white-space:nowrap}
+tbody tr:hover{background:var(--card2)}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px}
+.pill{
+  display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;
+  background:var(--card2);border:1px solid var(--line2);color:var(--fg2);
+}
+.pill.ok{color:var(--ok);border-color:rgba(63,185,80,.4);background:rgba(63,185,80,.1)}
+.pill.warn{color:var(--warn);border-color:rgba(210,153,34,.4);background:rgba(210,153,34,.1)}
+.pill.err{color:var(--err);border-color:rgba(248,81,73,.4);background:rgba(248,81,73,.1)}
+.pill.acc{color:var(--acc);border-color:rgba(79,156,249,.4);background:rgba(79,156,249,.1)}
+.empty{color:var(--fg3);font-size:12.5px;padding:14px;text-align:center;border:1px dashed var(--line2);border-radius:8px}
+.note{
+  font-size:12px;color:var(--fg2);background:var(--card2);border-left:3px solid var(--acc);
+  padding:9px 12px;border-radius:0 8px 8px 0;margin:10px 0;
+}
+.note.warn{border-left-color:var(--warn)}
+.note.err{border-left-color:var(--err)}
+.note.ok{border-left-color:var(--ok)}
+pre.out{
+  background:#080b10;border:1px solid var(--line);border-radius:8px;padding:12px;
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;line-height:1.6;
+  white-space:pre-wrap;word-break:break-word;max-height:460px;overflow:auto;margin:0;
+}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:12.5px}
+.kv .k{color:var(--fg3)}
+.helptext{
+  background:#080b10;border:1px solid var(--line);border-radius:8px;padding:12px;
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px;line-height:1.55;
+  white-space:pre-wrap;max-height:340px;overflow:auto;color:var(--fg2);margin:0;
+}
+.itemlist{display:flex;flex-direction:column;gap:1px}
+.irow{
+  display:flex;align-items:center;gap:9px;padding:6px 9px;border-radius:7px;
+  border:1px solid transparent;font-size:12.5px;
+}
+.irow:hover{background:var(--card2);border-color:var(--line)}
+.irow .ic{width:16px;text-align:center}
+.irow .nm{flex:1;min-width:0}
+.irow .dt{color:var(--fg3);font-size:11.5px;white-space:nowrap}
+.irow.sec{background:var(--card2);font-weight:600;margin-top:8px;border-color:var(--line2)}
+.irow.sec .ic{color:var(--acc)}
+.irow.info .ic{color:var(--cyan)}
+.sectitle{font-size:12px;color:var(--fg3);margin:16px 0 6px;letter-spacing:.6px}
+.logdrawer{
+  position:fixed;left:0;right:0;bottom:0;background:var(--bg2);
+  border-top:1px solid var(--line2);z-index:60;box-shadow:0 -8px 30px rgba(0,0,0,.5);
+}
+.logdrawer .bar{
+  display:flex;align-items:center;gap:10px;padding:9px 16px;cursor:pointer;
+  border-bottom:1px solid transparent;
+}
+.logdrawer.open .bar{border-bottom-color:var(--line)}
+.logdrawer .body{max-height:44vh;overflow:auto;padding:8px 16px 14px;display:none}
+.logdrawer.open .body{display:block}
+.logdrawer .grip{
+  position:absolute;left:0;right:0;top:-4px;height:9px;cursor:ns-resize;z-index:2;
+}
+.logdrawer .grip:hover{background:linear-gradient(var(--acc),transparent);opacity:.45}
+.logtask{border:1px solid var(--line);border-radius:8px;margin-bottom:10px;overflow:hidden}
+.logtask .head{
+  display:flex;align-items:center;gap:9px;padding:7px 11px;background:var(--card);
+  font-size:12px;border-bottom:1px solid var(--line);
+}
+.logtask .cmd{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--cyan)}
+.logtask .out{
+  background:#080b10;padding:8px 11px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  font-size:11.5px;line-height:1.55;max-height:230px;overflow:auto;white-space:pre-wrap;word-break:break-word;
+}
+.logtask .out .e{color:#ff9a94}
+.logtask .out .o{color:var(--fg2)}
+/* 网页内确认条: Mole 跑在 pty 上等交互确认, 后端把提示识别成 SSE 事件推过来 */
+.logtask .cslot:empty{display:none}
+.logtask .cbar{
+  border-top:1px solid var(--line);background:rgba(210,153,34,.09);
+  padding:10px 11px;display:flex;flex-direction:column;gap:7px;
+}
+.logtask .cbar .ct{font-size:12.5px;font-weight:600;color:#f0c674}
+.logtask .cbar .cp{
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px;color:var(--fg);
+  background:#080b10;border:1px solid var(--line);border-radius:6px;padding:6px 9px;
+  white-space:pre-wrap;word-break:break-word;
+}
+.logtask .cbar .ch{font-size:11px;color:var(--fg3)}
+.logtask .cbar.done{background:rgba(63,185,80,.08)}
+.logtask .cbar.done .ct{color:var(--ok)}
+.logtask .cbar.sudo{background:rgba(248,81,73,.12);border-top-color:rgba(248,81,73,.45)}
+.logtask .cbar.sudo .ct{color:#ff9a94}
+.toast{
+  position:fixed;right:20px;bottom:74px;background:var(--card2);border:1px solid var(--line2);
+  border-left:3px solid var(--acc);padding:10px 14px;border-radius:8px;font-size:12.5px;
+  z-index:80;max-width:380px;box-shadow:0 8px 24px rgba(0,0,0,.45);
+}
+.toast.err{border-left-color:var(--err)}
+.toast.ok{border-left-color:var(--ok)}
+.spin{display:inline-block;width:11px;height:11px;border:2px solid var(--line2);
+  border-top-color:var(--acc);border-radius:50%;animation:sp .7s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.bar-wrap{display:flex;align-items:center;gap:9px;font-size:12px;color:var(--fg3)}
+.bar-wrap .track{flex:1;height:5px;background:var(--card2);border-radius:3px;overflow:hidden}
+.bar-wrap .fill{height:100%;background:var(--acc);border-radius:3px}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <h1><span class="dot"></span>Mole WebUI</h1>
+      <div class="ver" id="brand-ver">正在连接…</div>
+      <div class="authbox" id="brand-auth"></div>
+    </div>
+    <nav id="nav"></nav>
+    <div class="sidebar-foot">
+      <div>本地回环 127.0.0.1:7788</div>
+      <div id="foot-ver" style="margin-top:4px"></div>
+    </div>
+  </aside>
+  <main class="main">
+    <header class="topbar">
+      <div>
+        <h2 id="page-title">状态</h2>
+        <p id="page-sub">加载中…</p>
+      </div>
+      <div class="meta" id="topbar-meta"></div>
+    </header>
+    <div id="banner"></div>
+    <section class="view" id="view"></section>
+  </main>
+</div>
+
+<div class="logdrawer" id="logdrawer">
+  <div class="bar" id="logbar">
+    <span class="ic">▤</span>
+    <span id="log-title">执行日志</span>
+    <span class="pill" id="log-count">0</span>
+    <span class="spacer"></span>
+    <span id="log-state" style="font-size:11.5px;color:var(--fg3)"></span>
+    <button class="sm ghost" id="log-clear">清空</button>
+  </div>
+  <div class="body" id="log-body"></div>
+</div>
+
+<script>
+'use strict';
+var S = { menu:null, health:null, status:null };
+var PAGES = {};
+
+/* ============================ 页面：通用工具页 ============================ */
+function cmdMeta(key){
+  if (!S.menu) return null;
+  for (var i = 0; i < S.menu.commands.length; i++){
+    if (S.menu.commands[i].key === key) return S.menu.commands[i];
+  }
+  return null;
+}
+function optCheckbox(optNodes, label, flag){
+  var input = h('input', { type: 'checkbox' });
+  optNodes.push({ get: function(){ return input.checked ? [flag] : []; } });
+  return h('label', { class: 'chk' }, [ input, document.createTextNode(label) ]);
+}
+function optText(optNodes, label, placeholder, flag){
+  var input = h('input', { type: 'text', placeholder: placeholder || '' });
+  optNodes.push({ get: function(){ var v = input.value.trim(); return v ? [flag, v] : []; } });
+  return h('label', { class: 'chk' }, [ document.createTextNode(label), input ]);
+}
+
+/**
+ * 通用工具页: 命令说明 + 选项 + 执行
+ * cfg: { command, options(builder), runLabel, confirmText, sudo }
+ */
+function genericTool(view, key, cfg){
+  cfg = cfg || {};
+  var meta = cmdMeta(key);
+  var optNodes = [];
+  var args = [];
+  function syncArgs(){
+    args = [];
+    optNodes.forEach(function(o){ args = args.concat(o.get() || []); });
+  }
+  var optsRow = h('div', { class: 'row' });
+  if (cfg.options) cfg.options(optsRow, optNodes);
+
+  var runBtn = h('button', {
+    class: 'danger', text: cfg.runLabel || '真正执行',
+    onclick: function(){
+      syncArgs();
+      var cm = cmdMeta(key);
+      var msg = cfg.confirmText || (cm && cm.confirm) || ('确认真正执行 ' + key + '？此操作会改动系统。');
+      if (!window.confirm(msg)) return;
+      runTask(key, args, { sudo: cfg.sudo !== false })
+        .then(function(){ toast('已提交任务，请查看底部日志', 'ok'); })
+        .catch(function(e){ toast(e.message, 'err'); });
+    }
+  });
+
+  var actionRow = h('div', { class: 'row' }, [ runBtn ]);
+  if (cfg.extraActions) cfg.extraActions(actionRow, optNodes, syncArgs);
+
+  view.appendChild(card(
+    h('span', null, [ (meta ? meta.title : key), ' ', h('span', { class: 'pill', text: 'mo ' + key }) ]),
+    meta ? meta.summary : '',
+    [
+      h('div', { class: 'note' + (cfg.noteKind ? ' ' + cfg.noteKind : ''), text: cfg.note || '' }),
+      optsRow,
+      actionRow
+    ]
+  ));
+
+  if (meta && meta.help){
+    view.appendChild(card('命令帮助原文', '直接取自 mo ' + key + ' --help', h('pre', { class: 'helptext', text: meta.help })));
+  }
+}
+
+/* ============================ 页面：清理 ============================ */
+registerPage('clean', {
+  title: '清理',
+  sub: '释放磁盘空间',
+  mount: async function(view){
+    genericTool(view, 'clean', {
+      note: '「真正执行」会删除缓存、日志与残留文件，操作不可撤销，请确认后执行。',
+      options: function(row, optNodes){
+        row.appendChild(optText(optNodes, '外部磁盘路径', '/Volumes/xxx', '--external'));
+        row.appendChild(optCheckbox(optNodes, '详细日志', '--debug'));
+      }
+    });
+    var wlBox = h('div');
+    view.appendChild(card('受保护缓存（白名单）', 'mo clean --whitelist 管理的条目，清理时会被跳过。', wlBox));
+    loadWhitelist(wlBox, 'cache');
+  }
+});
+
+/* ============================ 页面：白名单组件 ============================ */
+function loadWhitelist(box, kind){
+  clear(box);
+  box.appendChild(h('div', { class: 'row' }, [ h('span', { class: 'spin' }), h('span', { text: '读取中…' }) ]));
+  api('/api/whitelist?kind=' + kind).then(function(r){
+    clear(box);
+    var isCache = (kind === 'cache');
+    var input = h('input', {
+      type: 'text',
+      placeholder: isCache
+        ? '绝对路径或 ~ 开头的路径，如 ~/Library/Caches/x/*'
+        : '绝对路径，或优化任务 ID 如 cache_refresh'
+    });
+    var addBtn = h('button', { class: 'primary', text: '添加', onclick: function(){
+      var v = input.value.trim();
+      if (!v){ toast('请输入路径模式', 'err'); return; }
+      api('/api/whitelist', { method: 'POST', body: { kind: kind, action: 'add', pattern: v } })
+        .then(function(res){ toast(res.message || ('已添加：' + v), res.changed === false ? '' : 'ok'); input.value = ''; loadWhitelist(box, kind); })
+        .catch(function(e){ toast(e.message, 'err'); });
+    }});
+    var list = h('div');
+    if (!r.entries.length){
+      list.appendChild(emptyBox('当前没有自定义白名单条目（Mole 内置的安全保护仍然生效）'));
+    } else {
+      r.entries.forEach(function(e){
+        list.appendChild(h('div', { class: 'irow' }, [
+          h('span', { class: 'ic', text: '•' }),
+          h('span', { class: 'nm mono', text: e }),
+          h('button', { class: 'sm', text: '移除', onclick: function(){
+            api('/api/whitelist', { method: 'POST', body: { kind: kind, action: 'remove', pattern: e } })
+              .then(function(res){ toast(res.message || ('已移除：' + e), res.changed === false ? '' : 'ok'); loadWhitelist(box, kind); })
+              .catch(function(err){ toast(err.message, 'err'); });
+          }})
+        ]));
+      });
+    }
+    box.appendChild(h('div', { class: 'row', style: { marginBottom: '12px' } }, [ input, addBtn ]));
+    box.appendChild(note(isCache
+      ? 'Mole 要求这里是绝对路径：~ 开头的路径会在保存时展开成绝对路径，相对路径会被 Mole 直接跳过（后端会拒绝并报错）。支持 * ? [] 通配符。'
+      : 'optimize 白名单按整行精确匹配，一行有两种写法：绝对路径（~ 开头也可以，支持 * ? [] 通配符）表示该路径不被优化清理；单个优化任务 ID 表示整个优化任务被跳过。任务 ID 只能填 Mole 内置的那几个（见下方列表），不是内置 ID 的相对路径写进去不会生效。不支持「名称|模式|分类」三段式。'));
+    if (isCache){
+      box.appendChild(note('首次保存会创建 ~/.config/mole/whitelist。Mole 的规则是「文件存在就只读这个文件」，' +
+        '不再回落到它的默认保护项，所以 WebUI 第一次创建这个文件时会把 Mole 的默认可选保护项' +
+        '（gradle / ollama / playwright / JetBrains / surge 等缓存）一并写进去，' +
+        '避免你无意中失去这些保护；之后再加条目只追加，不动已有内容。', 'warn'));
+    } else if ((r.optimize_task_ids || []).length){
+      box.appendChild(h('div', { class: 's', style: { marginTop: '8px', color: 'var(--fg3)', fontSize: '11.5px' },
+        text: '可用的优化任务 ID（填进上面的输入框即可跳过整个任务）：' }));
+      var idRow = h('div', { class: 'row', style: { marginTop: '4px' } });
+      r.optimize_task_ids.forEach(function(id){
+        idRow.appendChild(h('span', { class: 'pill', text: id }));
+      });
+      box.appendChild(idRow);
+    }
+    box.appendChild(list);
+    box.appendChild(h('div', { class: 's', style: { marginTop: '10px', color: 'var(--fg3)', fontSize: '11.5px' }, text: '配置文件：' + r.path }));
+  }).catch(function(e){
+    clear(box);
+    box.appendChild(note('读取白名单失败：' + e.message, 'err'));
+  });
+}
+
+/* ============================ 页面：优化维护 ============================ */
+registerPage('optimize', {
+  title: '优化维护',
+  sub: '刷新缓存和服务',
+  mount: async function(view){
+    genericTool(view, 'optimize', {
+      note: '优化会刷新系统缓存与重建服务索引，部分任务需要管理员授权。',
+      options: function(row, optNodes){
+        row.appendChild(optCheckbox(optNodes, '详细日志', '--debug'));
+      }
+    });
+    var wlBox = h('div');
+    view.appendChild(card('受保护项目（白名单）', 'mo optimize --whitelist 管理的条目，优化时会被跳过。', wlBox));
+    loadWhitelist(wlBox, 'project');
+  }
+});
+
+/* ============================ 页面：卸载应用 ============================ */
+registerPage('uninstall', {
+  title: '卸载应用',
+  sub: '彻底卸载应用',
+  mount: async function(view){
+    var selected = [];
+    var tableBox = h('div');
+    var selBox = h('div');
+    var args = [];
+    var withData = false, permanent = false;
+
+    function refreshSel(){
+      clear(selBox);
+      if (!selected.length){ selBox.appendChild(emptyBox('尚未选择任何应用')); return; }
+      selBox.appendChild(h('div', { class: 'row' }, selected.map(function(n){
+        return h('span', { class: 'pill acc', text: n });
+      })));
+    }
+
+    var runBtn = h('button', { class: 'danger', text: '真正卸载', onclick: function(){
+      if (!selected.length){ toast('请先勾选应用', 'err'); return; }
+      args = selected.slice();
+      if (permanent) args.push('--permanent');
+      if (withData) args.push('--with-data');
+      var confirmLines = ['确认卸载 ' + selected.join('、') + '？'];
+      if (permanent){
+        confirmLines.push('已勾选「跳过废纸篓（--permanent）」：文件将被直接删除，不可恢复，不会进入废纸篓。');
+      } else {
+        confirmLines.push('卸载的文件默认进入废纸篓，可以恢复。');
+      }
+      if (withData){
+        confirmLines.push('已勾选「同时删除应用数据（--with-data）」：该应用的个人数据也会一并删除。');
+      }
+      if (!window.confirm(confirmLines.join('\n\n'))) return;
+      runTask('uninstall', args, { sudo: true })
+        .then(function(){ toast('已提交卸载任务，请查看底部日志', 'ok'); })
+        .catch(function(e){ toast(e.message, 'err'); });
+    }});
+
+    view.appendChild(card('已安装应用', '数据来源：mo uninstall --list（JSON 数组）', tableBox));
+    view.appendChild(card('操作', '勾选上方应用后执行', [
+      h('div', { class: 'row', style: { marginBottom: '10px' } }, [
+        h('label', { class: 'chk' }, [ (function(){ var i = h('input', { type: 'checkbox' }); i.addEventListener('change', function(){ withData = i.checked; }); return i; })(), document.createTextNode('同时删除应用数据（--with-data）') ]),
+        h('label', { class: 'chk' }, [ (function(){ var i = h('input', { type: 'checkbox' }); i.addEventListener('change', function(){ permanent = i.checked; }); return i; })(), document.createTextNode('跳过废纸篓直接删除（--permanent）') ])
+      ]),
+      h('div', { class: 'row' }, [ runBtn ]),
+      selBox,
+      note('执行后会在下方日志里出现确认按钮，点「确认执行」即完成卸载' +
+           '（Mole 仍要求你亲自确认，网页按钮等价于终端回车）。')
+    ]));
+
+    refreshSel();
+    clear(tableBox);
+    tableBox.appendChild(h('div', { class: 'row' }, [ h('span', { class: 'spin' }), h('span', { text: '正在读取应用列表…' }) ]));
+    api('/api/apps').then(function(r){
+      clear(tableBox);
+      var apps = r.apps || [];
+      if (!apps.length){ tableBox.appendChild(emptyBox('没有读到应用列表')); return; }
+      var tb = h('table');
+      tb.appendChild(h('thead', null, [ h('tr', null, [
+        h('th', { style: { width: '30px' } }), h('th', { text: '名称' }),
+        h('th', { text: '卸载名' }), h('th', { text: 'Bundle ID' }),
+        h('th', { text: '路径' }), h('th', { class: 'num', text: '大小' })
+      ]) ]));
+      var tbody = h('tbody');
+      apps.forEach(function(a){
+        var cb = h('input', { type: 'checkbox' });
+        cb.addEventListener('change', function(){
+          var name = a.uninstall_name || a.name;
+          if (cb.checked){ if (selected.indexOf(name) < 0) selected.push(name); }
+          else { selected = selected.filter(function(x){ return x !== name; }); }
+          refreshSel();
+        });
+        tbody.appendChild(h('tr', null, [
+          h('td', null, [cb]),
+          h('td', { text: a.name }),
+          h('td', { class: 'mono', text: a.uninstall_name }),
+          h('td', { class: 'mono', text: a.bundle_id }),
+          h('td', { class: 'mono', style: { fontSize: '11px' }, text: a.path }),
+          h('td', { class: 'num', text: a.size })
+        ]));
+      });
+      tb.appendChild(tbody);
+      tableBox.appendChild(tb);
+      tableBox.appendChild(h('div', { class: 's', style: { marginTop: '8px', color: 'var(--fg3)', fontSize: '11.5px' }, text: '共 ' + apps.length + ' 个应用 · 来源 mo uninstall --list' }));
+    }).catch(function(e){
+      clear(tableBox);
+      tableBox.appendChild(note('读取应用列表失败：' + e.message, 'err'));
+    });
+  }
+});
+
+/* ============================ 页面：磁盘分析 ============================ */
+registerPage('analyze', {
+  title: '磁盘分析',
+  sub: '探索磁盘使用',
+  mount: async function(view){
+    var pathInput = h('input', { type: 'text', value: '', placeholder: '留空 = 整机概览，或输入绝对路径如 /Users/sunshuo/Library' });
+    pathInput.style.minWidth = '380px';
+    var resultBox = h('div');
+    var selPaths = [];
+
+    var goBtn = h('button', { class: 'primary', text: '扫描', onclick: function(){
+      var p = pathInput.value.trim();
+      var url = '/api/analyze' + (p ? ('?path=' + encodeURIComponent(p)) : '');
+      clear(resultBox);
+      resultBox.appendChild(h('div', { class: 'row' }, [ h('span', { class: 'spin' }), h('span', { text: '正在扫描…' }) ]));
+      api(url).then(function(r){ renderAnalyze(r, resultBox, selPaths, pathInput); })
+        .catch(function(e){ clear(resultBox); resultBox.appendChild(note('扫描失败：' + e.message, 'err')); });
+    }});
+
+    view.appendChild(card('扫描范围', '数据来源：analyze-go --json（不带路径 = 整机概览）', [
+      h('div', { class: 'row' }, [ pathInput, goBtn ]),
+      note('Mole 的 analyze 只做「探索」，CLI 没有按路径删除的能力。勾选目录仅作记录，实际清理请到「清理」页执行。', 'warn')
+    ]));
+    view.appendChild(card('扫描结果', null, resultBox));
+
+    function renderAnalyze(r, box, sel, input){
+      clear(box);
+      var d = r.data || {};
+      var entries = d.entries || [];
+      box.appendChild(h('div', { class: 'row', style: { marginBottom: '10px' } }, [
+        h('span', { class: 'pill acc', text: '路径 ' + (d.path || '/') }),
+        h('span', { class: 'pill', text: '总计 ' + fmtBytes(d.total_size) }),
+        h('span', { class: 'pill', text: '条目 ' + entries.length }),
+        h('span', { class: 'pill', text: '耗时 ' + r.elapsed_ms + ' ms' })
+      ]));
+      if (!entries.length){ box.appendChild(emptyBox('没有扫描到条目')); return; }
+      var tb = h('table');
+      tb.appendChild(h('thead', null, [ h('tr', null, [
+        h('th', { style: { width: '30px' } }), h('th', { text: '名称' }),
+        h('th', { class: 'num', text: '大小' }), h('th', { text: '路径' }),
+        h('th', { text: '状态' }), h('th', { text: '操作' })
+      ]) ]));
+      var tbody = h('tbody');
+      entries.forEach(function(e){
+        var cb = h('input', { type: 'checkbox' });
+        cb.addEventListener('change', function(){
+          if (cb.checked){ if (sel.indexOf(e.path) < 0) sel.push(e.path); }
+          else sel = sel.filter(function(x){ return x !== e.path; });
+          updateSel();
+        });
+        var drill = h('button', { class: 'sm', text: '下钻', onclick: function(){
+          input.value = e.path;
+          goBtn.click();
+        }});
+        tbody.appendChild(h('tr', null, [
+          h('td', null, [cb]),
+          h('td', { text: e.name }),
+          h('td', { class: 'num', text: fmtBytes(e.size) }),
+          h('td', { class: 'mono', style: { fontSize: '11px' }, text: e.path }),
+          h('td', null, [ h('span', { class: 'pill ' + (e.scan_status === 'complete' ? 'ok' : 'warn'), text: e.scan_status || '-' }) ]),
+          h('td', null, [ drill ])
+        ]));
+      });
+      tb.appendChild(tbody);
+      box.appendChild(tb);
+      updateSel();
+    }
+
+    function updateSel(){
+      var info = $('#analyze-sel');
+      if (!info) return;
+      clear(info);
+      if (!selPaths.length){ info.appendChild(emptyBox('尚未勾选目录')); return; }
+      info.appendChild(h('div', { class: 'row' }, selPaths.map(function(p){
+        return h('span', { class: 'pill acc', text: p });
+      })));
+    }
+
+    var selInfo = h('div', { id: 'analyze-sel' });
+    view.appendChild(card('勾选的目录', 'Mole 的 clean 按类别清理，不支持精确删除单个目录；这里只记录你勾选的目录。', [
+      selInfo
+    ]));
+    updateSel();
+  }
+});
+/* ============================ 页面：系统监控 ============================ */
+registerPage('status', {
+  title: '状态',
+  sub: '监控系统健康',
+  mount: async function(view){
+    var es = null;
+    var timer = null;
+    var live = { on: false };
+
+    var ringRow = h('div', { class: 'grid g4' });
+    var statGrid = h('div', { class: 'grid g4' });
+    var extraBox = h('div');
+    var tsEl = h('span', { class: 'pill', text: '等待数据' });
+
+    function renderSnap(d){
+      if (!d) return;
+      var hw = d.hardware || {};
+      var cpu = d.cpu || {};
+      var mem = d.memory || {};
+      var disk = (d.disks || [])[0] || {};
+      var score = d.health_score;
+
+      clear(ringRow);
+      ringRow.appendChild(h('div', { class: 'stat' }, [
+        h('div', { class: 'k', text: '健康评分' }),
+        h('div', { style: { display: 'flex', justifyContent: 'center', marginTop: '10px' } }, [
+          ring(score, String(score === undefined ? '-' : score), '分',
+            score >= 80 ? 'var(--ok)' : (score >= 50 ? 'var(--warn)' : 'var(--err)'))
+        ]),
+        h('div', { class: 's', style: { textAlign: 'center' }, text: d.health_score_msg || '' })
+      ]));
+      ringRow.appendChild(h('div', { class: 'stat' }, [
+        h('div', { class: 'k', text: 'CPU 使用率' }),
+        h('div', { style: { display: 'flex', justifyContent: 'center', marginTop: '10px' } }, [
+          ring(cpu.usage, fmtPct(cpu.usage), (cpu.core_count || '-') + ' 核', 'var(--cyan)')
+        ]),
+        h('div', { class: 's', style: { textAlign: 'center' }, text: '负载 ' + (cpu.load1 !== undefined ? Number(cpu.load1).toFixed(2) : '-') })
+      ]));
+      ringRow.appendChild(h('div', { class: 'stat' }, [
+        h('div', { class: 'k', text: '内存使用率' }),
+        h('div', { style: { display: 'flex', justifyContent: 'center', marginTop: '10px' } }, [
+          ring(mem.used_percent, fmtPct(mem.used_percent), fmtBytes(mem.used), 'var(--acc2)')
+        ]),
+        h('div', { class: 's', style: { textAlign: 'center' }, text: '总量 ' + (hw.total_ram || '-') })
+      ]));
+      ringRow.appendChild(h('div', { class: 'stat' }, [
+        h('div', { class: 'k', text: '磁盘使用率' }),
+        h('div', { style: { display: 'flex', justifyContent: 'center', marginTop: '10px' } }, [
+          ring(disk.used_percent, fmtPct(disk.used_percent), disk.mount || '/', 'var(--warn)')
+        ]),
+        h('div', { class: 's', style: { textAlign: 'center' }, text: '总量 ' + (hw.disk_size || '-') })
+      ]));
+
+      clear(statGrid);
+      statGrid.appendChild(stat('进程数', fmtNum(d.procs), '当前运行的进程'));
+      statGrid.appendChild(stat('开机时长', d.uptime || fmtUptime(d.uptime_seconds), '已运行 ' + fmtUptime(d.uptime_seconds)));
+      statGrid.appendChild(stat('系统版本', hw.os_version || d.platform || '-', hw.model || ''));
+      statGrid.appendChild(stat('CPU 型号', hw.cpu_model || '-', hw.refresh_rate || ''));
+      statGrid.appendChild(stat('内存总量', hw.total_ram || '-', '可用 ' + fmtBytes(mem.available)));
+      statGrid.appendChild(stat('Swap 使用', fmtBytes(mem.swap_used), '总量 ' + fmtBytes(mem.swap_total)));
+      statGrid.appendChild(stat('磁盘已用', fmtBytes(disk.used), '总量 ' + fmtBytes(disk.total)));
+      statGrid.appendChild(stat('废纸篓', fmtBytes(d.trash_size), d.trash_approx ? '估算值' : '精确值'));
+
+      clear(extraBox);
+      var cores = cpu.per_core || [];
+      if (cores.length){
+        extraBox.appendChild(h('div', { class: 'sectitle', text: '每核使用率' }));
+        extraBox.appendChild(h('div', { class: 'row' }, cores.map(function(c){
+          return h('span', { class: 'pill' + (c >= 80 ? ' err' : ''), text: Number(c).toFixed(0) + '%' });
+        })));
+      }
+      var nets = d.network || [];
+      if (nets.length){
+        extraBox.appendChild(h('div', { class: 'sectitle', text: '网络' }));
+        extraBox.appendChild(h('div', { class: 'row' }, nets.map(function(n){
+          return h('span', { class: 'pill', text: (n.name || '网卡') + ' ↓' + (n.rx_rate !== undefined ? fmtBytes(n.rx_rate) + '/s' : '-') + ' ↑' + (n.tx_rate !== undefined ? fmtBytes(n.tx_rate) + '/s' : '-') });
+        })));
+      }
+      var procs = d.top_processes || d.processes || [];
+      if (Array.isArray(procs) && procs.length){
+        extraBox.appendChild(h('div', { class: 'sectitle', text: '高占用进程' }));
+        extraBox.appendChild(table(
+          [{ label: '进程' }, { label: 'CPU %', num: true }, { label: '内存', num: true }],
+          procs.slice(0, 12).map(function(p){
+            return [p.name || p.command || '-',
+                    (p.cpu_percent !== undefined ? Number(p.cpu_percent).toFixed(1) : '-'),
+                    (p.memory !== undefined ? fmtBytes(p.memory) : '-')];
+          })
+        ));
+      }
+      tsEl.textContent = '采集于 ' + (d.collected_at || '-');
+    }
+
+    function startLive(){
+      if (es) return;
+      live.on = true;
+      startBtn.disabled = true;
+      stopBtn.disabled = false;
+      es = new EventSource('/api/status/stream?interval=2s');
+      es.addEventListener('snapshot', function(ev){
+        var d;
+        try { d = JSON.parse(ev.data); } catch (e) { return; }
+        renderSnap(d);
+      });
+      es.addEventListener('error', function(){
+        tsEl.textContent = '实时流中断（后端可能已停止）';
+        stopLive();
+      });
+    }
+    function stopLive(){
+      if (es){ es.close(); es = null; }
+      live.on = false;
+      startBtn.disabled = false;
+      stopBtn.disabled = true;
+    }
+
+    var startBtn = h('button', { class: 'primary', text: '开始实时监控', onclick: startLive });
+    var stopBtn = h('button', { text: '停止', onclick: stopLive, disabled: true });
+    var onceBtn = h('button', { text: '取一次快照', onclick: function(){
+      tsEl.textContent = '采集中…';
+      api('/api/status').then(function(r){
+        renderSnap(r.data || {});
+        tsEl.textContent = '采集于 ' + ((r.data || {}).collected_at || '-');
+      }).catch(function(e){ tsEl.textContent = '采集失败：' + e.message; });
+    }});
+
+    view.appendChild(card('实时监控', '数据来源：mo status --watch --interval 2s（后端已封装为 SSE）', [
+      h('div', { class: 'row', style: { marginBottom: '12px' } }, [ startBtn, stopBtn, onceBtn, tsEl ]),
+      ringRow,
+      h('div', { style: { height: '14px' } }),
+      statGrid
+    ]));
+    view.appendChild(card('明细', null, extraBox));
+
+    api('/api/status').then(function(r){
+      renderSnap(r.data || {});
+      tsEl.textContent = '采集于 ' + ((r.data || {}).collected_at || '-');
+    }).catch(function(e){
+      tsEl.textContent = '读取失败：' + e.message;
+    });
+
+    PAGES.status.unmount = stopLive;
+  }
+});
+
+/* ============================ 页面：清理历史 ============================ */
+registerPage('history', {
+  title: '清理历史',
+  sub: '查看清理活动',
+  mount: async function(view){
+    var limitInput = h('input', { type: 'number', value: '20', min: '1', max: '200', style: { width: '90px' } });
+    var box = h('div');
+
+    // mo history --json 的顶层结构:
+    //   { logs: {operations, deletions}, limit, sessions: [...], deletions: [...] }
+    // sessions / deletions 才是数组; logs 是对象（不能当表格数据源）。
+    function arrayOf(d, key){
+      if (!d || typeof d !== 'object') return null;
+      return Array.isArray(d[key]) ? d[key] : null;
+    }
+    function rowsOf(d){
+      if (Array.isArray(d)) return d;
+      if (!d || typeof d !== 'object') return [];
+      var keys = ['sessions', 'deletions', 'entries', 'records', 'items', 'data'];
+      for (var i = 0; i < keys.length; i++){
+        if (Array.isArray(d[keys[i]])) return d[keys[i]];
+      }
+      return [];
+    }
+    function keyList(rows){
+      var keys = [];
+      rows.forEach(function(row){
+        if (row && typeof row === 'object'){
+          Object.keys(row).forEach(function(k){ if (keys.indexOf(k) < 0) keys.push(k); });
+        }
+      });
+      return keys;
+    }
+    function numericKey(k){ return /size|bytes|count|num|duration|ms/i.test(k); }
+    function renderRows(box, rows){
+      var keys = keyList(rows);
+      if (!keys.length){
+        box.appendChild(emptyBox('这一类没有记录'));
+        return;
+      }
+      box.appendChild(table(
+        keys.map(function(k){ return { label: k, num: numericKey(k) }; }),
+        rows.map(function(row){
+          return keys.map(function(k){
+            var v = row ? row[k] : '';
+            if (v === null || v === undefined) return '-';
+            if (typeof v === 'object') return JSON.stringify(v);
+            return String(v);
+          });
+        })
+      ));
+    }
+
+    function load(){
+      var limit = parseInt(limitInput.value, 10);
+      if (isNaN(limit) || limit < 1) limit = 20;
+      if (limit > 200) limit = 200;
+      limitInput.value = limit;
+      clear(box);
+      box.appendChild(h('div', { class: 'row' }, [ h('span', { class: 'spin' }), h('span', { text: '正在读取历史…' }) ]));
+      api('/api/history?limit=' + limit).then(function(r){
+        clear(box);
+        if (r.exit_code !== 0 && !r.data){
+          box.appendChild(note('读取失败：' + (r.stderr || ('exit ' + r.exit_code)), 'err'));
+          return;
+        }
+        var sessions = arrayOf(r.data, 'sessions');
+        var deletions = arrayOf(r.data, 'deletions');
+        var known = (sessions !== null) || (deletions !== null);
+        if (!known){
+          var rows = rowsOf(r.data);
+          if (!rows.length){
+            box.appendChild(emptyBox('返回了数据但结构无法识别（原始输出见下）'));
+            var topKeys = (r.data && typeof r.data === 'object') ? Object.keys(r.data) : [];
+            if (topKeys.length){
+              box.appendChild(h('div', { class: 's', style: { marginTop: '8px', color: 'var(--fg3)', fontSize: '11.5px' },
+                text: '顶层字段：' + topKeys.join('、') }));
+            }
+            if (r.stdout) box.appendChild(h('pre', { class: 'out', text: r.stdout }));
+            if (r.stderr) box.appendChild(h('pre', { class: 'out', text: r.stderr }));
+            return;
+          }
+          box.appendChild(h('div', { class: 'sectitle', text: '记录' }));
+          renderRows(box, rows);
+        } else {
+          var hasAny = ((sessions && sessions.length) || (deletions && deletions.length)) ? true : false;
+          if (!hasAny){
+            box.appendChild(emptyBox('没有清理历史记录'));
+          } else {
+            if (sessions && sessions.length){
+              box.appendChild(h('div', { class: 'sectitle', text: '操作会话（sessions）' }));
+              renderRows(box, sessions);
+            }
+            if (deletions && deletions.length){
+              box.appendChild(h('div', { class: 'sectitle', text: '删除记录（deletions）' }));
+              renderRows(box, deletions);
+            }
+          }
+        }
+        box.appendChild(h('div', { class: 's', style: { marginTop: '8px', color: 'var(--fg3)', fontSize: '11.5px' },
+          text: '耗时 ' + r.elapsed_ms + ' ms · 来源 mo history --json --limit ' + limit }));
+      }).catch(function(e){
+        clear(box);
+        box.appendChild(note('读取失败：' + e.message, 'err'));
+      });
+    }
+
+    view.appendChild(card('记录条数', '范围 1-200，默认 20', [
+      h('div', { class: 'row' }, [
+        limitInput,
+        h('button', { class: 'primary', text: '加载', onclick: load }),
+        h('span', { class: 's', style: { color: 'var(--fg3)' }, text: '数据来源：mo history --json' })
+      ])
+    ]));
+    view.appendChild(card('清理记录', null, box));
+    load();
+  }
+});
+
+/* ============================ 页面：项目清理 ============================ */
+registerPage('purge', {
+  title: '项目清理',
+  sub: '清理旧项目产物',
+  mount: async function(view){
+    genericTool(view, 'purge', {
+      note: '「真正执行」会删除旧项目的构建产物目录（node_modules、target、build 等），操作不可撤销。'
+        + '注意：Mole 1.71.0 起会额外扫描 AI agent 的 worktree 容器，'
+        + '首次执行可能要等几分钟（后端超时上限 600 秒），之后通常 5 秒内。',
+      sudo: false,
+      options: function(row, optNodes){
+        row.appendChild(optCheckbox(optNodes, '包含零大小的产物目录（--include-empty）', '--include-empty'));
+        row.appendChild(optCheckbox(optNodes, '详细日志（--debug）', '--debug'));
+      },
+      confirmText: '确认真正执行项目清理？\n\n'
+        + 'WebUI 没有终端可交互，执行时会自动附加 --yes（按 Mole 的默认选择清理：'
+        + '7 天内有文件活动的项目默认不选）。\n'
+        + '删除的构建产物不可恢复，请确认后执行。'
+    });
+
+    var box = h('div');
+    view.appendChild(card('扫描目录配置', 'mo purge --paths 管理的目录；保存时后端会自动备份原文件。', box));
+    api('/api/purge/paths').then(function(r){
+      clear(box);
+      var ta = h('textarea', { rows: '12' });
+      ta.value = (r.paths || []).join('\n');
+      ta.style.width = '100%';
+      ta.style.fontFamily = 'var(--mono, monospace)';
+      ta.style.fontSize = '12px';
+      var saveBtn = h('button', { class: 'primary', text: '保存目录配置', onclick: function(){
+        var lines = ta.value.split('\n').map(function(s){ return s.trim(); }).filter(function(s){ return s.length > 0; });
+        api('/api/purge/paths', { method: 'POST', body: { paths: lines } })
+          .then(function(res){
+            toast('已保存' + (res.backup ? '（原文件已备份到 ' + res.backup + '）' : ''), 'ok');
+            load();
+          })
+          .catch(function(e){ toast(e.message, 'err'); });
+      }});
+      box.appendChild(ta);
+      box.appendChild(h('div', { class: 'row', style: { marginTop: '10px' } }, [ saveBtn ]));
+      box.appendChild(h('div', { class: 's', style: { marginTop: '8px', color: 'var(--fg3)', fontSize: '11.5px' },
+        text: '配置文件：' + r.path + (r.exists ? '' : '（尚不存在，保存后创建）') }));
+    }).catch(function(e){
+      clear(box);
+      box.appendChild(note('读取扫描目录失败：' + e.message, 'err'));
+    });
+
+    // ---- AI agent worktree 容器 (Mole 1.71.0 起自动纳入 purge 扫描范围)
+    var wtBox = h('div');
+    view.appendChild(card('AI agent worktree 容器',
+      'Mole 1.71.0 起自动纳入 purge 扫描范围；只清容器里的构建产物，worktree 本身永不删除。', [
+      h('div', { class: 'row' }, [
+        h('button', { class: 'primary', text: '刷新容器列表', onclick: function(){ loadWorktrees(wtBox); } })
+      ]),
+      wtBox
+    ]));
+    loadWorktrees(wtBox);
+
+    function loadWorktrees(target){
+      clear(target);
+      target.appendChild(h('div', { class: 'row' }, [ h('span', { class: 'spin' }), h('span', { text: '读取中…' }) ]));
+      api('/api/worktrees').then(function(r){
+        clear(target);
+        var cs = r.containers || [];
+        if (!cs.length){
+          target.appendChild(note('没有找到 worktree 容器。', 'warn'));
+          return;
+        }
+        var tb = h('tbody');
+        cs.forEach(function(c){
+          tb.appendChild(h('tr', {}, [
+            h('td', { text: c.path }),
+            h('td', { text: c.owner }),
+            h('td', { text: c.exists ? '已存在' : '未创建' }),
+            h('td', { text: c.exists ? String(c.entries) : '-' }),
+            h('td', { text: c.exists ? (fmtBytes(c.size_bytes) + (c.truncated ? '（统计超时，只算了一部分）' : '')) : '-' })
+          ]));
+        });
+        target.appendChild(h('table', {}, [
+          h('thead', {}, [ h('tr', {}, [
+            h('th', { text: '容器路径' }),
+            h('th', { text: '归属' }),
+            h('th', { text: '状态' }),
+            h('th', { text: 'worktree 数' }),
+            h('th', { text: '占用空间' })
+          ])]),
+          tb
+        ]));
+        var exist = cs.filter(function(c){ return c.exists; }).length;
+        target.appendChild(h('div', { class: 's', style: { marginTop: '8px', color: 'var(--fg3)', fontSize: '11.5px' },
+          text: '共 ' + cs.length + ' 个容器位置，' + exist + ' 个已创建 · 这些目录由对应的 AI 编程工具创建，用过 worktree 才会出现。'
+            + 'Mole 的默认扫描路径与「扫描目录配置」里的自定义项是并集，不需要额外配置。' }));
+      }).catch(function(e){
+        clear(target);
+        target.appendChild(note('读取失败：' + e.message, 'err'));
+      });
+    }
+  }
+});
+
+/* ============================ 页面：安装包清理 ============================ */
+registerPage('installer', {
+  title: '安装包清理',
+  sub: '查找并移除安装包文件',
+  mount: async function(view){
+    genericTool(view, 'installer', {
+      note: '会查找 .dmg、.pkg、.iso、.xip、.zip 安装包。删除前请确认候选清单无误。'
+        + '⚠️ WebUI 没有终端可交互：Mole 要你在终端的清单里勾选要删哪些安装包，'
+        + '所以这里点「真正执行」只会列出候选清单，不会删除任何文件（要真执行请在终端跑 mo installer）。',
+      sudo: false,
+      options: function(row, optNodes){
+        row.appendChild(optCheckbox(optNodes, '详细日志（--debug）', '--debug'));
+      }
+    });
+  }
+});
+
+/* ============================ 页面：Intel 瘦身 ============================ */
+registerPage('slim', {
+  title: 'Intel 瘦身',
+  sub: '移除通用应用中的 Intel 代码',
+  mount: async function(view){
+    genericTool(view, 'slim', {
+      note: '每个应用都在副本上瘦身，副本必须通过代码签名和 Gatekeeper 检查后才能替换原应用，原应用会移入废纸篓（可恢复）。应用更新后 Intel 代码会重新出现。'
+        + '⚠️ WebUI 没有终端可交互：Mole 要你在终端里勾选要瘦身哪些应用，'
+        + '所以这里点「真正执行」只会列出候选清单，不会改动任何应用（要真执行请在终端跑 mo slim）。',
+      sudo: false,
+      options: function(row, optNodes){
+        row.appendChild(optCheckbox(optNodes, '显示被跳过的原因（--debug）', '--debug'));
+      }
+    });
+  }
+});
+
+/* ============================ 页面：Touch ID ============================ */
+registerPage('touchid', {
+  title: 'Touch ID',
+  sub: '配置 sudo 触控 ID',
+  mount: async function(view){
+    var statusBox = h('div');
+
+    var statusBtn = h('button', { class: 'primary', text: '查看当前状态', onclick: function(){
+      clear(statusBox);
+      statusBox.appendChild(h('div', { class: 'row' }, [ h('span', { class: 'spin' }), h('span', { text: '读取中…' }) ]));
+      runReadonly('touchid', ['status'], statusBox).catch(function(){});
+    }});
+
+    function act(action, label){
+      return h('button', { class: 'primary', text: label, onclick: function(){
+        if (!window.confirm('确认' + label + '？该操作会修改 sudo 的 PAM 配置，需要管理员授权。')) return;
+        runTask('touchid', [action], { sudo: true })
+          .then(function(){ toast('已提交，请查看底部日志', 'ok'); })
+          .catch(function(e){ toast(e.message, 'err'); });
+      }});
+    }
+
+    view.appendChild(card('状态', 'mo touchid status（只读）', [
+      h('div', { class: 'row' }, [ statusBtn ]), statusBox
+    ]));
+    view.appendChild(card('启用 / 禁用', 'mo touchid enable / disable', [
+      h('div', { class: 'row' }, [ act('enable', '启用触控 ID'), act('disable', '禁用触控 ID') ]),
+      note('这两个操作会改写 /etc/pam.d/sudo 的配置，需要 macOS 管理员授权框确认。', 'warn')
+    ]));
+
+    var meta = cmdMeta('touchid');
+    if (meta && meta.help){
+      view.appendChild(card('命令帮助原文', '直接取自 mo touchid --help', h('pre', { class: 'helptext', text: meta.help })));
+    }
+  }
+});
+
+/* ============================ 页面：Shell 补全 ============================ */
+registerPage('completion', {
+  title: 'Shell 补全',
+  sub: '设置 shell 补全',
+  mount: async function(view){
+    var out = h('div');
+    var shells = ['bash', 'zsh', 'fish'];
+    var current = 'zsh';
+
+    function showShell(shell){
+      clear(out);
+      out.appendChild(h('div', { class: 'row' }, [ h('span', { class: 'spin' }), h('span', { text: '正在生成 ' + shell + ' 补全脚本…' }) ]));
+      runReadonly('completion', [shell], out).catch(function(){});
+    }
+
+    function generateShell(shell){
+      if (!window.confirm('生成 ' + shell + ' 补全脚本？\n\n' +
+          '注意：mo completion ' + shell + ' 只是把补全脚本打印到标准输出，不会写入任何配置文件。\n\n' +
+          '请把下方输出用 eval "$(mo completion ' + shell + ')" 载入当前 shell，或自行追加到对应的 rc 文件。')) return;
+      showShell(shell);
+    }
+
+    var row = h('div', { class: 'row' });
+    shells.forEach(function(sh){
+      row.appendChild(h('button', { class: 'primary', text: '生成 ' + sh + ' 脚本', onclick: function(){ current = sh; generateShell(sh); } }));
+    });
+
+    view.appendChild(card('选择 Shell', 'mo completion bash|zsh|fish', [
+      row,
+      note('mo completion <shell> 只把补全脚本打印到标准输出，不会修改你的 shell 配置文件。' +
+           '无参数的 mo completion 才会改写配置文件，而且需要交互按键确认（WebUI 里无法完成），所以这里不提供该入口。', 'warn')
+    ]));
+    view.appendChild(card('补全脚本输出', '脚本内容显示在这里，不会自动写入任何配置文件。', [
+      note('载入方式：在终端执行 eval "$(mo completion zsh)"（bash 用 bash，fish 用 fish）。这只影响当前终端会话；想永久生效请把同一条命令追加到 ~/.zshrc / ~/.bashrc / ~/.config/fish/config.fish。'),
+      out
+    ]));
+
+    var meta = cmdMeta('completion');
+    if (meta && meta.help){
+      view.appendChild(card('命令帮助原文', '直接取自 mo completion --help', h('pre', { class: 'helptext', text: meta.help })));
+    }
+    showShell(current);
+  }
+});
+
+/* ============================ 页面：更新 ============================ */
+registerPage('update', {
+  title: '更新',
+  sub: '更新到最新版本',
+  mount: async function(view){
+    var notice = (S.menu && S.menu.update_notice) || '';
+    var cur = (S.menu && S.menu.version) || '-';
+
+    view.appendChild(card('当前版本', '数据来源：mo --version', kv([
+      ['已安装版本', cur],
+      ['更新提示', notice || '（没有待更新提示）'],
+      ['安装目录', S.health ? S.health.install_dir : '-'],
+      ['管理员授权', S.health ? (S.health.sudo_cached ? '已缓存票据' : '无票据') : '-'],
+      ['控制终端', S.health ? (S.health.has_controlling_tty ? '正常' : '缺失') : '-']
+    ])));
+
+    view.appendChild(card('执行更新', 'mo update [--force] [--nightly]', [
+      note('更新会替换已安装的 Mole 版本，属于不可逆操作，且会请求管理员授权。' +
+           (notice ? '当前提示：' + notice : ''), 'err'),
+      note('提权说明：macOS 的 sudo 票据按终端生效。若本服务是在终端里前台启动的，' +
+           '在同一个终端里执行一次 sudo -v（Touch ID 或密码）即可直接提权；' +
+           '否则执行更新时会尝试弹出 macOS 授权框，确认即可。', 'warn'),
+      h('div', { class: 'row' }, [
+        h('button', { class: 'danger', text: '更新到最新稳定版', onclick: function(){
+          if (!window.confirm('确认更新 Mole（当前 ' + cur + '）？\n\n更新会替换已安装版本，需要管理员授权。')) return;
+          runTask('update', [], { sudo: true })
+            .then(function(){ toast('已提交更新任务，请查看底部日志', 'ok'); })
+            .catch(function(e){ toast(e.message, 'err'); });
+        }}),
+        h('button', { class: 'danger', text: '强制重装最新稳定版（--force）', onclick: function(){
+          if (!window.confirm('确认强制重装 Mole？\n\n--force 会重新下载并覆盖安装，即使版本号相同也会执行。')) return;
+          runTask('update', ['--force'], { sudo: true })
+            .then(function(){ toast('已提交更新任务，请查看底部日志', 'ok'); })
+            .catch(function(e){ toast(e.message, 'err'); });
+        }}),
+        h('button', { class: 'danger', text: '安装未发布构建（--nightly）', onclick: function(){
+          if (!window.confirm('确认安装 nightly 构建？\n\nnightly 是主分支上未发布的版本，可能不稳定。')) return;
+          runTask('update', ['--nightly'], { sudo: true })
+            .then(function(){ toast('已提交更新任务，请查看底部日志', 'ok'); })
+            .catch(function(e){ toast(e.message, 'err'); });
+        }})
+      ]),
+      h('div', { class: 'row', style: { marginTop: '10px' } }, [
+        h('button', { class: 'primary', text: '授权管理员权限（Touch ID / 密码）', onclick: requestSudoAuth })
+      ]),
+      note('注意：mo update 没有安全模式，点击「真正执行」会立即开始更新，请确认后操作。', 'warn')
+    ]));
+
+    var meta = cmdMeta('update');
+    if (meta && meta.help){
+      view.appendChild(card('命令帮助原文', '直接取自 mo update --help', h('pre', { class: 'helptext', text: meta.help })));
+    }
+  }
+});
+
+/* ============================ 页面：移除 Mole ============================ */
+registerPage('remove', {
+  title: '移除 Mole',
+  sub: '从系统中移除 Mole',
+  mount: async function(view){
+    view.appendChild(card('危险操作', 'mo remove', [
+      note('这会从系统中卸载 Mole 本体及其全部配置，属于不可逆操作。' +
+           '操作日志会保留在 ~/Library/Logs/mole。执行前请确认清楚。', 'err'),
+      h('div', { class: 'row' }, [
+        h('button', { class: 'danger', text: '确认卸载 Mole', onclick: function(){
+          if (!window.confirm('最后确认：真的要移除 Mole 吗？\n\n这会删除 Mole 本体和全部配置，无法撤销。')) return;
+          if (!window.confirm('再次确认：移除 Mole 后，WebUI 也会随之失效。')) return;
+          runTask('remove', [], { sudo: true })
+            .then(function(){ toast('已提交卸载任务，请查看底部日志', 'ok'); })
+            .catch(function(e){ toast(e.message, 'err'); });
+        }})
+      ]),
+      note('执行后会在下方日志里出现确认按钮，点「确认执行」即完成移除' +
+           '（Mole 仍要求你亲自确认，网页按钮等价于终端回车）。')
+    ]));
+
+    var meta = cmdMeta('remove');
+    if (meta && meta.help){
+      view.appendChild(card('命令帮助原文', '直接取自 mo remove --help', h('pre', { class: 'helptext', text: meta.help })));
+    }
+  }
+});
+
+/* ============================ DOM 工具 ============================ */
+function h(tag, attrs, kids){
+  var e = document.createElement(tag);
+  if (attrs){
+    for (var k in attrs){
+      var v = attrs[k];
+      if (v === null || v === undefined || v === false) continue;
+      if (k === 'class') e.className = v;
+      else if (k === 'text') e.textContent = v;
+      else if (k.slice(0,2) === 'on') e.addEventListener(k.slice(2), v);
+      else if (k === 'style' && typeof v === 'object'){
+        for (var s in v){
+          if (s.charAt(0) === '-' && s.charAt(1) === '-') e.style.setProperty(s, v[s]);
+          else e.style[s] = v[s];
+        }
+      }
+      else e.setAttribute(k, v);
+    }
+  }
+  if (kids !== undefined && kids !== null){
+    (Array.isArray(kids) ? kids : [kids]).forEach(function(c){
+      if (c === null || c === undefined || c === false) return;
+      e.appendChild(typeof c === 'object' ? c : document.createTextNode(String(c)));
+    });
+  }
+  return e;
+}
+function $(sel){ return document.querySelector(sel); }
+function clear(el){ while (el.firstChild) el.removeChild(el.firstChild); }
+
+/* ============================ 接口 ============================ */
+async function api(path, opts){
+  opts = opts || {};
+  var init = { method: opts.method || 'GET', headers: {} };
+  if (opts.body !== undefined){
+    init.headers['Content-Type'] = 'application/json';
+    init.body = JSON.stringify(opts.body);
+  }
+  var res = await fetch(path, init);
+  var data = null;
+  try { data = await res.json(); }
+  catch (e) { data = { error: '响应不是合法 JSON' }; }
+  if (!res.ok) throw new Error((data && data.error) ? data.error : ('HTTP ' + res.status));
+  return data;
+}
+
+function renderAuthBox(){
+  var box = $('#brand-auth');
+  if (!box) return;
+  clear(box);
+  var cached = !!(S.health && S.health.sudo_cached);
+  var tty = S.health ? S.health.has_controlling_tty : null;
+  var btn = h('button', {
+    class: cached ? 'okbtn' : 'primary',
+    text: cached ? '已授权管理员权限' : '授权管理员权限',
+    onclick: requestSudoAuth
+  });
+  box.appendChild(btn);
+  box.appendChild(h('div', { class: 'ast', text: cached
+    ? '票据已缓存，提权操作直接通过'
+    : (tty === false ? '服务无控制终端，提权会失败' : 'Touch ID / 密码授权') }));
+}
+
+async function requestSudoAuth(){
+  toast('等待授权中…请在屏幕上用 Touch ID 或密码确认（取消授权框即中止）', 'ok');
+  try{
+    var d = await api('/api/sudo/auth', { method:'POST', body:{} });
+    toast(d.message || '授权成功', 'ok');
+  } catch(e){
+    toast('授权失败：' + e.message, 'err');
+  }
+  try { S.health = await api('/api/health'); } catch(e){}
+  renderAuthBox();
+  route();
+}
+
+function toast(msg, kind){
+  var t = h('div', { class: 'toast' + (kind ? ' ' + kind : ''), text: msg });
+  document.body.appendChild(t);
+  setTimeout(function(){ if (t.parentNode) t.parentNode.removeChild(t); }, 5000);
+}
+
+/* ============================ 格式化 ============================ */
+function fmtBytes(n){
+  if (n === null || n === undefined) return '-';
+  var v = Number(n);
+  if (!isFinite(v)) return '-';
+  var u = ['B','KB','MB','GB','TB'];
+  var i = 0;
+  while (v >= 1024 && i < u.length - 1){ v = v / 1024; i++; }
+  return (i === 0 ? v.toFixed(0) : v.toFixed(v < 10 ? 2 : 1)) + ' ' + u[i];
+}
+function fmtNum(n){
+  if (n === null || n === undefined) return '-';
+  return Number(n).toLocaleString('zh-CN');
+}
+function fmtPct(n){
+  if (n === null || n === undefined) return '-';
+  return Number(n).toFixed(1) + '%';
+}
+function fmtUptime(sec){
+  if (sec === null || sec === undefined) return '-';
+  var s = Math.floor(Number(sec));
+  var d = Math.floor(s / 86400);
+  var h = Math.floor((s % 86400) / 3600);
+  var m = Math.floor((s % 3600) / 60);
+  if (d > 0) return d + ' 天 ' + h + ' 小时';
+  if (h > 0) return h + ' 小时 ' + m + ' 分';
+  return m + ' 分 ' + (s % 60) + ' 秒';
+}
+
+/* ============================ 通用组件 ============================ */
+function ring(pct, centerText, subText, color){
+  var p = Math.max(0, Math.min(100, Number(pct) || 0));
+  var r = h('div', { class: 'ring' });
+  r.style.setProperty('--p', p);
+  r.style.setProperty('--c', color || 'var(--acc)');
+  r.appendChild(h('div', { class: 'hole' }, [
+    h('b', { text: centerText }),
+    h('span', { text: subText || '' })
+  ]));
+  return r;
+}
+function card(title, desc, body, extra){
+  var c = h('div', { class: 'card' });
+  var hd = h('h3');
+  hd.appendChild(typeof title === 'string' ? document.createTextNode(title) : title);
+  if (extra) hd.appendChild(extra);
+  c.appendChild(hd);
+  if (desc) c.appendChild(h('p', { class: 'desc' }, desc));
+  (Array.isArray(body) ? body : [body]).forEach(function(b){ if (b) c.appendChild(b); });
+  return c;
+}
+function stat(k, v, s){
+  return h('div', { class: 'stat' }, [
+    h('div', { class: 'k', text: k }),
+    h('div', { class: 'v', text: v }),
+    s ? h('div', { class: 's', text: s }) : null
+  ]);
+}
+function note(text, kind){
+  return h('div', { class: 'note' + (kind ? ' ' + kind : ''), text: text });
+}
+function emptyBox(text){ return h('div', { class: 'empty', text: text }); }
+function kv(pairs){
+  var g = h('div', { class: 'kv' });
+  pairs.forEach(function(p){
+    if (!p) return;
+    g.appendChild(h('div', { class: 'k', text: p[0] }));
+    g.appendChild(h('div', { class: 'mono', text: p[1] === null || p[1] === undefined ? '-' : String(p[1]) }));
+  });
+  return g;
+}
+function table(headers, rows, opts){
+  opts = opts || {};
+  var tb = h('table');
+  var tr = h('tr');
+  headers.forEach(function(c){
+    tr.appendChild(h('th', { class: c.num ? 'num' : null, text: c.label !== undefined ? c.label : c }));
+  });
+  tb.appendChild(h('thead', null, [tr]));
+  var body = h('tbody');
+  rows.forEach(function(cells){
+    var r = h('tr');
+    cells.forEach(function(c){
+      var td;
+      if (c && typeof c === 'object' && !Array.isArray(c) && c.node){
+        td = h('td', { class: c.cls || null });
+        td.appendChild(c.node);
+      } else {
+        td = h('td', { class: (c && c.num) ? 'num' : null, text: (c && c.node === undefined) ? String(c) : '' });
+        if (c && c.node === undefined && c !== null && typeof c === 'object') td.textContent = String(c.text || '');
+      }
+      r.appendChild(td);
+    });
+    body.appendChild(r);
+  });
+  tb.appendChild(body);
+  return tb;
+}
+
+/* ============================ 日志抽屉 + SSE ============================ */
+var LOG = { count:0 };
+
+function logOpen(){ $('#logdrawer').classList.add('open'); syncDrawerSpace(); }
+
+// 抽屉展开时按它的实际高度给主内容留白, 否则日志面板会盖住页面底部
+function syncDrawerSpace(){
+  var d = $('#logdrawer'), v = $('#view');
+  if (!d || !v) return;
+  var need = d.classList.contains('open') ? d.offsetHeight : 0;
+  v.style.paddingBottom = Math.max(140, need + 20) + 'px';
+}
+
+function logTask(label, taskId){
+  var out = h('div', { class: 'out' });
+  // 交互条(确认条/sudo 警告条)挂载点: 在输出区上方, 跟着任务走
+  var slot = h('div', { class: 'cslot' });
+  var state = h('span', { text: '运行中' });
+  var abortBtn = h('button', {
+    class: 'sm danger', text: '中止',
+    onclick: function(){
+      api('/api/task/' + taskId + '/abort', { method: 'POST' })
+        .then(function(r){ toast(r.ok ? '已发送中止信号' : '任务已结束', r.ok ? 'ok' : ''); })
+        .catch(function(e){ toast(e.message, 'err'); });
+    }
+  });
+  var head = h('div', { class: 'head' }, [
+    h('span', { class: 'cmd', text: label }),
+    h('span', { class: 'spacer' }),
+    state,
+    abortBtn
+  ]);
+  var box = h('div', { class: 'logtask' }, [ head, slot, out ]);
+  var body = $('#log-body');
+  body.appendChild(box);
+  LOG.count++;
+  $('#log-count').textContent = LOG.count;
+  logOpen();
+  body.scrollTop = body.scrollHeight;
+  return { box:box, out:out, slot:slot, taskId:taskId, state:state, abortBtn:abortBtn, timer:null, startedAt:0 };
+}
+
+// 清掉任务卡片里的交互条(确认条/sudo 警告条)
+function clearBars(t){
+  if (!t || !t.slot) return;
+  clear(t.slot);
+  t.confirmEl = null;
+  t.sudoEl = null;
+}
+
+// 网页内确认条: Mole 跑在 pty 上, 提示被后端识别成 confirm 事件推过来,
+// 点按钮 = 在终端里按回车(确认) / 按 ESC(取消)
+function showConfirmBar(t, promptText){
+  if (!t || !t.slot) return;
+  // 二次确认: 后到的 confirm 事件把前一条重置回可点击状态
+  if (t.confirmEl && t.confirmEl.parentNode) t.confirmEl.parentNode.removeChild(t.confirmEl);
+
+  var okBtn = h('button', { class: 'danger', text: '确认执行' });
+  var cancelBtn = h('button', { text: '取消' });
+  var bar = h('div', { class: 'cbar' }, [
+    h('div', { class: 'ct', text: 'Mole 正在等待你确认下面的操作' }),
+    h('div', { class: 'cp', text: promptText || '' }),
+    h('div', { class: 'row' }, [ okBtn, cancelBtn ]),
+    h('div', { class: 'ch', text: '确认 = 在终端按回车；取消 = 按 ESC' })
+  ]);
+  t.slot.appendChild(bar);
+  t.confirmEl = bar;
+
+  function settle(action){
+    okBtn.disabled = true;
+    cancelBtn.disabled = true;
+    api('/api/task/' + t.taskId + '/confirm', { method: 'POST', body: { action: action } })
+      .then(function(){
+        clear(bar);
+        bar.className = 'cbar done';
+        bar.appendChild(h('div', { class: 'ct', text: action === 'confirm'
+          ? '已确认，Mole 继续执行…'
+          : '已发送取消，Mole 将中止本次操作' }));
+      })
+      .catch(function(e){
+        toast(e.message, 'err');
+        okBtn.disabled = false;
+        cancelBtn.disabled = false;
+      });
+  }
+  okBtn.addEventListener('click', function(){ settle('confirm'); });
+  cancelBtn.addEventListener('click', function(){ settle('cancel'); });
+}
+
+// sudo 警告条: Mole 在等管理员密码, 网页上给不了密码
+function showSudoBar(t, promptText){
+  if (!t || !t.slot) return;
+  if (t.sudoEl && t.sudoEl.parentNode) t.sudoEl.parentNode.removeChild(t.sudoEl);
+  var stopBtn = h('button', { class: 'sm danger', text: '中止任务' });
+  var bar = h('div', { class: 'cbar sudo' }, [
+    h('div', { class: 'ct', text: 'Mole 需要管理员密码' }),
+    h('div', { class: 'ch', text: '请在弹出的系统对话框里选择密码；也可以点「中止任务」结束本次操作。' }),
+    promptText ? h('div', { class: 'cp', text: promptText }) : null,
+    h('div', { class: 'row' }, [ stopBtn ])
+  ]);
+  t.slot.appendChild(bar);
+  t.sudoEl = bar;
+  stopBtn.addEventListener('click', function(){
+    stopBtn.disabled = true;
+    api('/api/task/' + t.taskId + '/abort', { method: 'POST' })
+      .then(function(r){
+        toast(r.ok ? '已发送中止信号' : '任务已结束', r.ok ? 'ok' : '');
+        if (bar.parentNode) bar.parentNode.removeChild(bar);
+        t.sudoEl = null;
+      })
+      .catch(function(e){ toast(e.message, 'err'); stopBtn.disabled = false; });
+  });
+}
+
+// 日志抽屉: 顶部拖拽调整高度, 高度变化时自动同步主内容留白
+(function(){
+  var d = $('#logdrawer'), body = $('#log-body');
+  if (!d || !body) return;
+  var grip = document.createElement('div');
+  grip.className = 'grip';
+  grip.title = '拖动调整日志高度';
+  d.insertBefore(grip, d.firstChild);
+  var dragging = false, startY = 0, startH = 0;
+  grip.addEventListener('mousedown', function(e){
+    dragging = true; startY = e.clientY; startH = body.offsetHeight;
+    e.preventDefault(); e.stopPropagation();
+    document.body.style.userSelect = 'none';
+  });
+  document.addEventListener('mousemove', function(e){
+    if (!dragging) return;
+    var max = Math.round(window.innerHeight * 0.75);
+    var h = Math.max(120, Math.min(max, startH - (e.clientY - startY)));
+    body.style.maxHeight = h + 'px';
+    syncDrawerSpace();
+  });
+  document.addEventListener('mouseup', function(){
+    if (!dragging) return;
+    dragging = false; document.body.style.userSelect = '';
+  });
+  if (window.ResizeObserver){
+    new ResizeObserver(function(){ syncDrawerSpace(); }).observe(d);
+  }
+  window.addEventListener('resize', syncDrawerSpace);
+})();
+
+function logAppend(t, stream, text){
+  var row = h('div', { class: stream === 'stderr' ? 'e' : 'o', text: text });
+  t.out.appendChild(row);
+  t.out.scrollTop = t.out.scrollHeight;
+}
+
+function runTask(command, args, opts){
+  opts = opts || {};
+  args = args || [];
+  return api('/api/run', { method: 'POST', body: { command: command, args: args, sudo: !!opts.sudo } })
+    .then(function(res){
+      var label = command + (args.length ? ' ' + args.join(' ') : '');
+      var t = logTask(label, res.task_id);
+      var es = new EventSource('/api/stream?task=' + encodeURIComponent(res.task_id));
+      es.addEventListener('start', function(ev){
+        var d = JSON.parse(ev.data);
+        t.state.textContent = '运行中 · ' + (d.at || '');
+        // 实时计时: 清理类命令在删除阶段可能好几分钟没有新输出,
+        // 没有计时器的话页面看着像卡死
+        t.startedAt = Date.now();
+        if (t.timer) clearInterval(t.timer);
+        t.timer = setInterval(function(){
+          var sec = Math.floor((Date.now() - t.startedAt) / 1000);
+          var mm = Math.floor(sec / 60);
+          var el = mm > 0 ? (mm + ' 分 ' + (sec % 60) + ' 秒') : (sec + ' 秒');
+          t.state.textContent = '运行中 · 已运行 ' + el + ' · ' + (d.at || '');
+        }, 1000);
+        if (opts.onStart) opts.onStart(d);
+      });
+      es.addEventListener('line', function(ev){
+        var d = JSON.parse(ev.data);
+        logAppend(t, d.stream, d.text);
+      });
+      // Mole 在 pty 上等确认: 提示原文原样显示, 网页按钮等价于终端回车/ESC
+      es.addEventListener('confirm', function(ev){
+        var d = {};
+        try { d = JSON.parse(ev.data) || {}; } catch (e) {}
+        showConfirmBar(t, d.prompt);
+      });
+      es.addEventListener('sudo_prompt', function(ev){
+        var d = {};
+        try { d = JSON.parse(ev.data) || {}; } catch (e) {}
+        showSudoBar(t, d.prompt);
+      });
+      es.addEventListener('end', function(ev){
+        var d = JSON.parse(ev.data);
+        if (t.timer) { clearInterval(t.timer); t.timer = null; }
+        clearBars(t);
+        t.state.textContent = (d.aborted ? '已中止' : '已结束') + ' · exit=' + d.exit_code + ' · ' + d.elapsed_ms + 'ms';
+        t.state.className = d.aborted ? 'pill warn' : (d.exit_code === 0 ? 'pill ok' : 'pill err');
+        if (t.abortBtn.parentNode) t.abortBtn.parentNode.removeChild(t.abortBtn);
+        es.close();
+        if (opts.onEnd) opts.onEnd(d);
+      });
+      es.onerror = function(){
+        if (t.timer) { clearInterval(t.timer); t.timer = null; }
+        clearBars(t);
+        t.state.textContent = '连接中断';
+        t.state.className = 'pill warn';
+        es.close();
+      };
+      return res.task_id;
+    });
+}
+
+/* ============================ 结果渲染 ============================ */
+function renderParsed(r, box){
+  clear(box);
+  box.appendChild(h('div', { class: 'row', style: { marginBottom: '10px' } }, [
+    h('span', { class: 'pill acc', text: '命令：' + r.command }),
+    h('span', { class: 'pill', text: '退出码 ' + r.exit_code }),
+    h('span', { class: 'pill', text: r.elapsed_ms + ' ms' }),
+    h('span', { class: 'pill', text: '结构化行 ' + (r.parsed || []).length })
+  ]));
+  var list = h('div', { class: 'itemlist' });
+  (r.parsed || []).forEach(function(row){
+    if (row.type === 'table'){
+      list.appendChild(h('div', { class: 'sectitle', text: '表格' }));
+      var tb = h('table');
+      var tr = h('tr');
+      (row.header || []).forEach(function(c){ tr.appendChild(h('th', { text: c })); });
+      tb.appendChild(h('thead', null, [tr]));
+      var body = h('tbody');
+      (row.rows || []).forEach(function(cells){
+        var r2 = h('tr');
+        cells.forEach(function(c){ r2.appendChild(h('td', { text: c })); });
+        body.appendChild(r2);
+      });
+      tb.appendChild(body);
+      list.appendChild(tb);
+    } else if (row.type === 'section'){
+      list.appendChild(h('div', { class: 'irow sec' }, [
+        h('span', { class: 'ic', text: '➤' }), h('span', { class: 'nm', text: row.text })
+      ]));
+    } else if (row.type === 'item'){
+      list.appendChild(h('div', { class: 'irow' }, [
+        h('span', { class: 'ic', text: row.icon || '' }),
+        h('span', { class: 'nm', text: row.name || row.text }),
+        row.detail ? h('span', { class: 'dt', text: row.detail }) : null
+      ]));
+    } else if (row.type === 'info'){
+      list.appendChild(h('div', { class: 'irow info' }, [
+        h('span', { class: 'ic', text: row.icon || 'ℹ' }), h('span', { class: 'nm', text: row.text })
+      ]));
+    } else {
+      list.appendChild(h('div', { class: 'irow' }, [
+        h('span', { class: 'ic', text: '' }), h('span', { class: 'nm', text: row.text })
+      ]));
+    }
+  });
+  box.appendChild(list);
+  if (r.stdout){
+    box.appendChild(h('div', { class: 'sectitle', text: '原始输出（已剥离 ANSI）' }));
+    box.appendChild(h('pre', { class: 'out', text: r.stdout }));
+  }
+  if (r.stderr){
+    box.appendChild(h('div', { class: 'sectitle', text: '标准错误' }));
+    box.appendChild(h('pre', { class: 'out', text: r.stderr }));
+  }
+}
+
+function runReadonly(command, args, box){
+  args = args || [];
+  clear(box);
+  box.appendChild(h('div', { class: 'row' }, [
+    h('span', { class: 'spin' }),
+    h('span', { text: '正在执行 ' + command + (args.length ? ' ' + args.join(' ') : '') + ' …' })
+  ]));
+  return api('/api/readonly', { method: 'POST', body: { command: command, args: args } })
+    .then(function(r){ renderParsed(r, box); return r; })
+    .catch(function(e){
+      clear(box);
+      box.appendChild(note('执行失败：' + e.message, 'err'));
+      throw e;
+    });
+}
+
+/* ============================ 页面注册与路由 ============================ */
+
+function registerPage(key, meta){ PAGES[key] = meta; }
+
+function navItem(key, icon, title, desc){
+  var a = h('a', { class: 'navitem', href: '#/' + key }, [
+    h('span', { class: 'ic', text: icon }),
+    h('span', { text: title }),
+    desc ? h('span', { class: 'dsc', text: desc }) : null
+  ]);
+  a.dataset.key = key;
+  return a;
+}
+
+function renderNav(){
+  var nav = $('#nav');
+  clear(nav);
+  var g1 = h('div', { class: 'navgroup' }, [ h('h3', { text: '主菜单' }) ]);
+  g1.appendChild(navItem('clean', '➤', '清理', '释放磁盘空间'));
+  g1.appendChild(navItem('uninstall', '➤', '卸载', '彻底卸载应用'));
+  g1.appendChild(navItem('optimize', '➤', '优化', '刷新缓存和服务'));
+  g1.appendChild(navItem('analyze', '➤', '分析', '探索磁盘使用'));
+  g1.appendChild(navItem('status', '➤', '状态', '监控系统健康'));
+  nav.appendChild(g1);
+
+  var g2 = h('div', { class: 'navgroup' }, [ h('h3', { text: '更多工具' }) ]);
+  g2.appendChild(navItem('history', '·', '清理历史', '查看清理活动'));
+  g2.appendChild(navItem('purge', '·', '项目清理', '清理旧项目产物'));
+  g2.appendChild(navItem('installer', '·', '安装包清理', '查找并移除安装包'));
+  g2.appendChild(navItem('slim', '·', 'Intel 瘦身', '移除 Intel 代码'));
+  g2.appendChild(navItem('touchid', '·', 'Touch ID', '配置 sudo 触控 ID'));
+  g2.appendChild(navItem('completion', '·', 'Shell 补全', '设置 shell 补全'));
+  g2.appendChild(navItem('update', '·', '更新', '更新到最新版本'));
+  g2.appendChild(navItem('remove', '·', '移除 Mole', '从系统中移除 Mole'));
+  nav.appendChild(g2);
+}
+
+function markActive(key){
+  var items = document.querySelectorAll('.navitem');
+  for (var i = 0; i < items.length; i++){
+    items[i].classList.toggle('active', items[i].dataset.key === key);
+  }
+}
+
+function renderBanner(){
+  var box = $('#banner');
+  clear(box);
+  var notice = (S.menu && S.menu.update_notice) || '';
+  if (!notice) return;
+  var b = h('div', { class: 'banner' }, [
+    h('span', { text: 'ⓘ' }),
+    h('span', { text: notice }),
+    h('span', { class: 'x', text: '✕', onclick: function(){ clear(box); } })
+  ]);
+  box.appendChild(b);
+}
+
+function currentRoute(){
+  var raw = (location.hash || '#/clean').replace(/^#\/?/, '');
+  return raw || 'clean';
+}
+
+// 当前页面: 切页时卸载上一页的清理钩子。
+// 每代页面都挂在一个独立的容器元素上, 旧页面的异步回调只会往旧容器里写;
+// 下一次切页时 clear(view) 会把旧容器整棵移除, 因此旧数据串不进新页, 无需代际判断。
+var CURRENT_PAGE = null;
+
+async function route(){
+  var key = currentRoute();
+  var meta = PAGES[key];
+  if (!meta) key = 'clean', meta = PAGES.clean;
+  // 卸载上一页 (例如关闭状态页的 SSE 连接与 watch 子进程)
+  if (CURRENT_PAGE && typeof CURRENT_PAGE.unmount === 'function'){
+    try { CURRENT_PAGE.unmount(); } catch (e) { /* 清理失败不影响切页 */ }
+  }
+  CURRENT_PAGE = meta;
+  markActive(key);
+  $('#page-title').textContent = meta.title;
+  $('#page-sub').textContent = meta.sub || '';
+  $('#topbar-meta').textContent = S.menu ? ('Mole ' + S.menu.version + ' · ' + S.menu.primary.length + ' 项主菜单') : '';
+  var view = $('#view');
+  clear(view);
+  // 旧版本把 view.appendChild 替换成了带代际判断的代理, 这里删掉它让 #view 回到原型方法
+  delete view.appendChild;
+  // 本代页面的独立容器: 旧 mount 的异步回调只会写进这个容器,
+  // 容器在下一次切页时被 clear(view) 整棵移除, 天然与新页隔离。
+  var page = h('div', { class: 'page' });
+  // 这里原来塞过一个「⟳ 加载中…」行, 但 14 个页面的 mount 都不会移除它,
+  // 于是这一行在每张卡片上方永久残留, 让人以为页面一直在加载。
+  // 现在由各页面自带的「读取中…」占位负责（白名单卡片 / 应用表格 / 分析结果）。
+  view.appendChild(page);
+  try {
+    await meta.mount(page);
+  } catch (e) {
+    // 页面已被切走时容器已被移除, 不再往里写错误提示
+    if (!page.parentNode) return;
+    clear(page);
+    page.appendChild(note('页面加载失败：' + e.message, 'err'));
+  }
+}
+
+/* ============================ 启动 ============================ */
+function bindShell(){
+  $('#logbar').addEventListener('click', function(e){
+    if (e.target && e.target.id === 'log-clear') return;
+    $('#logdrawer').classList.toggle('open');
+    syncDrawerSpace();
+  });
+  $('#log-clear').addEventListener('click', function(e){
+    e.stopPropagation();
+    clear($('#log-body'));
+    LOG.count = 0;
+    $('#log-count').textContent = '0';
+  });
+  window.addEventListener('hashchange', route);
+}
+
+async function boot(){
+  bindShell();
+  try {
+    S.menu = await api('/api/menu');
+    S.health = await api('/api/health');
+  } catch (e) {
+    $('#brand-ver').textContent = '后端未连接：' + e.message;
+    return;
+  }
+  $('#brand-ver').textContent = 'Mole ' + S.menu.version;
+  renderAuthBox();
+  $('#foot-ver').textContent = 'Python ' + S.health.python_version + ' · ' + S.health.install_dir;
+  renderNav();
+  renderBanner();
+  route();
+}
+
+boot();
+</script>
+</body>
+</html>
