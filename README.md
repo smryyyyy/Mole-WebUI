@@ -327,8 +327,6 @@ MIT License
 
 本项目包装 [tw93/mole](https://github.com/tw93/mole) —— 感谢原作者的出色设计。
 
-README 的结构参考了 [smryyyyy/Vitals](https://github.com/smryyyyy/Vitals)。
-
 ---
 
 *本软件由 AI 辅助编写。*
